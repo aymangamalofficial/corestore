@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>فاتورة - Core Store</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #6c5ce7; /* بنفسجي عصري */
+      --line: #e5e7eb;
+    }
+
+    @media print {
+      @page { size: A4; margin: 14mm; }
+      .no-print { display: none !important; }
+      body { background: #fff; }
+      .invoice { box-shadow: none; }
+      .editable { border-bottom: 1px dotted transparent !important; }
+      input, .num { border-bottom: none !important; }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px; background: var(--bg);
+      font-family: "Cairo", Tahoma, Arial, sans-serif; color: var(--text);
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .btn {
+      padding: 10px 16px; border: 0; border-radius: 14px; cursor: pointer; font-weight: 600;
+      background: var(--accent); color: #fff; box-shadow: 0 10px 20px rgba(108,92,231,0.18);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 22px rgba(108,92,231,0.24); }
+
+    .invoice {
+      background: var(--card); border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+      overflow: hidden; border: 1px solid var(--line);
+    }
+
+    .header {
+      display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 24px; border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #fbfbff);
+    }
+
+    .brand {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .logo {
+      width: 72px; height: 72px; border-radius: 16px; border: 2px dashed var(--line);
+      display: grid; place-items: center; color: var(--muted); font-size: 12px; background: #fafafe;
+      overflow: hidden; /* لمنع الصورة من الخروج عن الحاوية */
+    }
+    .logo img {
+      width: 100%; /* لجعل الصورة تتكيف مع عرض الحاوية */
+      height: 100%; /* لجعل الصورة تتكيف مع ارتفاع الحاوية */
+      object-fit: contain; /* للحفاظ على نسبة العرض إلى الارتفاع دون تشويه */
+    }
+    .brand h1 { margin: 0; font-size: 26px; letter-spacing: .5px; }
+    .brand h1 span { color: var(--accent); }
+    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+    .meta { text-align: left; }
+    .meta table { border-collapse: collapse; }
+    .meta td { padding: 2px 0 2px 14px; font-size: 13px; color: var(--muted); }
+    .meta td strong { color: var(--text); font-size: 14px; }
+
+    .section { padding: 20px 24px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #fff; }
+    .card h3 { margin: 0 0 10px; font-size: 14px; color: var(--muted); font-weight: 700; letter-spacing: .6px; }
+
+    .field-row { display: grid; grid-template-columns: 140px 1fr; gap: 10px; align-items: center; padding: 6px 0; }
+    .label { color: var(--muted); font-size: 13px; }
+
+    .editable {
+      border-bottom: 1px dotted #cfd3df; padding: 4px 6px; border-radius: 8px;
+      min-height: 28px; outline: none; background: #fafbff;
+    }
+    .editable:focus { background: #f2f4ff; box-shadow: 0 0 0 3px rgba(108,92,231,.12); }
+
+    /* جدول المشتريات */
+    table { width: 100%; border-collapse: collapse; }
+    thead th { text-align: right; font-size: 13px; color: var(--muted); padding: 12px; border-bottom: 1px solid var(--line); }
+    tbody td { padding: 12px; border-bottom: 1px dashed var(--line); vertical-align: top; }
+
+    .num, input[type="number"] {
+      width: 100%; border: none; border-bottom: 1px dotted #cfd3df; text-align: center; padding: 6px; outline: none; background: #fafbff;
+      border-radius: 8px; font-size: 14px;
+    }
+    .num:focus, input[type="number"]:focus { background: #f2f4ff; box-shadow: 0 0 0 3px rgba(108,92,231,.12); }
+
+    .summary { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+
+    .totals { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    .totals header { background: #f7f7ff; padding: 12px 16px; font-weight: 700; color: var(--accent); border-bottom: 1px solid var(--line); }
+    .totals .row { display: grid; grid-template-columns: 1fr auto; padding: 10px 16px; border-bottom: 1px dashed var(--line); }
+    .totals .row:last-child { border-bottom: none; }
+
+    .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px 24px; }
+    .note { border: 1px dashed var(--line); border-radius: 12px; padding: 12px; color: var(--muted); font-size: 13px; background: #fcfcff; }
+    .sign { border: 1px dashed var(--line); border-radius: 12px; padding: 12px; text-align: center; color: var(--muted); }
+
+    .badge { display: inline-block; padding: 6px 10px; font-size: 12px; border-radius: 999px; background: #f1f0ff; color: var(--accent); font-weight: 700; }
+
+    .tiny { font-size: 12px; color: var(--muted); }
+    
+    /* أنماط جديدة لبيانات العميل في صف واحد */
+    .customer-data-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .customer-field {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .customer-label {
+      width: 80px;
+      color: var(--muted);
+      font-size: 13px;
+      margin-left: 10px;
+    }
+    .customer-value {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar no-print">
+      <button class="btn" onclick="window.print()">🖨️ طباعة الفاتورة</button>
+      <span class="tiny">حرّر الحقول مباشرة ثم اطبع</span>
+    </div>
+
+    <div class="invoice" id="invoice">
+      <div class="header">
+        <div class="brand">
+          <div class="logo">
+            <img src="logo.jpg" alt="Core Store Logo" />
+          </div>
+          <div>
+            <h1><span>Core</span> Store</h1>
+            <p>بيع و صيانة لابتوبات — الأفضل دائماً</p>
+            <span class="badge">فاتورة بيع</span>
+          </div>
+        </div>
+        <div class="meta">
+          <table>
+            <tr><td>رقم الفاتورة:</td><td><strong id="invNo" class="editable" contenteditable>CS-2025-001</strong></td></tr>
+            <tr><td>التاريخ:</td><td><strong id="invDate">—</strong></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card">
+          <h3>بيانات العميل</h3>
+          <div class="customer-data-grid">
+            <div class="customer-field">
+              <div class="customer-label">اسم العميل:</div>
+              <div class="customer-value"><div class="editable" contenteditable id="custName">—</div></div>
+            </div>
+            <div class="customer-field">
+              <div class="customer-label">كود العميل:</div>
+              <div class="customer-value"><div class="editable" contenteditable id="custCode">—</div></div>
+            </div>
+            <div class="customer-field">
+              <div class="customer-label">العنوان:</div>
+              <div class="customer-value"><div class="editable" contenteditable id="custAddr">—</div></div>
+            </div>
+            <div class="customer-field">
+              <div class="customer-label">رقم التليفون:</div>
+              <div class="customer-value"><div class="editable" contenteditable id="custPhone">—</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <table id="items">
+          <thead>
+            <tr>
+              <th style="width:40%">المنتج / الوصف</th>
+              <th>الكمية</th>
+              <th>السعر للوحدة (ج.م)</th>
+              <th>الإجمالي (ج.م)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="item-row">
+              <td><div class="editable" contenteditable>لاب توب Dell Latitude 7420 — i7, 16GB, 512GB</div></td>
+              <td><input class="num qty" type="number" min="1" value="1" /></td>
+              <td><input class="num price" type="number" step="0.01" min="0" value="29500" /></td>
+              <td class="lineTotal">0</td>
+            </tr>
+            <tr class="item-row">
+              <td><div class="editable" contenteditable>حقيبة لابتوب مقاومة للماء 15.6"</div></td>
+              <td><input class="num qty" type="number" min="1" value="1" /></td>
+              <td><input class="num price" type="number" step="0.01" min="0" value="450" /></td>
+              <td class="lineTotal">0</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div class="no-print" style="margin-top:10px; display:flex; gap:8px;">
+          <button class="btn" type="button" onclick="addRow()">➕ إضافة بند</button>
+          <button class="btn" type="button" onclick="removeLastRow()" style="background:#111827">🗑️ حذف آخر بند</button>
+        </div>
+      </div>
+
+      <div class="section summary">
+        <div></div>
+        <div class="totals">
+          <header>الإجماليات</header>
+          <div class="row"><div>الإجمالي الفرعي</div><div id="subTotal">0</div></div>
+          <div class="row"><div>الضريبة <span class="tiny">(<span id="taxRate" class="editable" contenteditable>0</span>%)</span></div><div id="tax">0</div></div>
+          <div class="row" style="font-weight:800; font-size:18px"><div>الإجمالي المستحق</div><div id="grandTotal">0</div></div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="note">ملاحظات: <span class="editable" contenteditable>المنتجات تخضع لسياسة الضمان والاسترجاع خلال 14 يومًا عند توافر جميع الملحقات والفاتورة.</span></div>
+        <div class="sign">توقيع المستلم<br /><br /><br />________________________</div>
+      </div>
+
+      <div class="section" style="padding-top:0">
+        <div class="tiny">تم إنشاء الفاتورة بواسطة Core Store — شكراً لاختياركم لنا.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ضبط التاريخ الحالي حسب المتصفح
+    (function setDate(){
+      const d = new Date();
+      const fmt = d.toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+      document.getElementById('invDate').textContent = fmt;
+    })();
+
+    function toMoney(v){ return (Math.round((v + Number.EPSILON) * 100) / 100).toLocaleString('ar-EG'); }
+
+    function recalc(){
+      const rows = document.querySelectorAll('.item-row');
+      let subtotal = 0;
+      rows.forEach(r => {
+        const qty = parseFloat(r.querySelector('.qty')?.value || '0') || 0;
+        const price = parseFloat(r.querySelector('.price')?.value || '0') || 0;
+        const total = qty * price;
+        r.querySelector('.lineTotal').textContent = toMoney(total);
+        subtotal += total;
+      });
+      document.getElementById('subTotal').textContent = toMoney(subtotal);
+      const rate = parseFloat(document.getElementById('taxRate').textContent || '0') || 0;
+      const tax = subtotal * (rate / 100);
+      document.getElementById('tax').textContent = toMoney(tax);
+      document.getElementById('grandTotal').textContent = toMoney(subtotal + tax);
+    }
+
+    function addRow(){
+      const tr = document.createElement('tr');
+      tr.className = 'item-row';
+      tr.innerHTML = `
+        <td><div class="editable" contenteditable>منتج جديد</div></td>
+        <td><input class="num qty" type="number" min="1" value="1" /></td>
+        <td><input class="num price" type="number" step="0.01" min="0" value="0" /></td>
+        <td class="lineTotal">0</td>
+      `;
+      document.querySelector('#items tbody').appendChild(tr);
+      attachListeners(tr);
+      recalc();
+    }
+
+    function removeLastRow(){
+      const rows = document.querySelectorAll('#items tbody .item-row');
+      if(rows.length > 0){ rows[rows.length - 1].remove(); recalc(); }
+    }
+
+    function attachListeners(scope=document){
+      scope.querySelectorAll('.qty, .price').forEach(inp => inp.addEventListener('input', recalc));
+      const tax = document.getElementById('taxRate');
+      tax.addEventListener('input', recalc);
+    }
+
+    attachListeners();
+    recalc();
+  </script>
+</body>
+</html>
